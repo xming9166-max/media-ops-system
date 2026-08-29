@@ -1,76 +1,414 @@
 # AGENTS.md
 
-## Project
+## 项目说明
 
-This is a long-term, modular self-media operations system.
+本项目是一个长期迭代的自媒体运营系统。
 
-The project consists of:
+项目目标：
 
-- Frontend: React + TypeScript
-- Backend: Python + FastAPI
-- Database: MySQL
-- Cache: Redis
-- Async tasks: Celery
-- Infrastructure: Docker
+- 模块化
+- 高内聚
+- 低耦合
+- 易维护
+- 易测试
+- 易扩展
+- 支持 AI Agent 持续参与开发
 
-## Architecture Principles
+---
 
-- High cohesion, low coupling.
-- Modular architecture.
-- Keep business modules independent.
-- Prefer simple and maintainable solutions.
-- Avoid unnecessary abstractions.
-- Do not introduce technologies without a clear reason.
+# 项目技术栈
 
-## Backend Principles
-
-Use the following dependency direction:
-
-Router → Service → Repository → Database
-
-Responsibilities:
-
-- Router: HTTP layer only.
-- Service: business logic.
-- Repository: database access.
-- Schema: request/response validation.
-- Model: database ORM models.
-
-Routers must not directly access the database.
-
-## Frontend Principles
-
-Use:
+## Frontend
 
 - React
 - TypeScript
 
-Keep:
+## Backend
 
-- Pages responsible for page composition.
-- Components responsible for UI.
-- Features responsible for business functionality.
-- Services responsible for API communication.
-- Hooks responsible for reusable logic.
-- Stores responsible for global state.
+- Python
+- FastAPI
 
-Avoid `any` unless there is a strong reason.
+## Database
 
-## Development Rules
+- MySQL
 
-Before modifying code:
+## Cache
 
-1. Read AGENTS.md.
-2. Inspect the existing project structure.
-3. Understand related code.
-4. Make the smallest reasonable change.
-5. Do not modify unrelated files.
+- Redis
 
-After implementing a feature:
+## Task Queue
 
-1. Run relevant tests.
-2. Check for errors.
-3. Review the changes.
-4. Report what was changed and what was tested.
+- Celery
 
-Do not implement multiple unrelated features in one task.
+## Containerization
+
+- Docker
+
+---
+
+# 总体架构原则
+
+项目必须采用模块化架构。
+
+核心原则：
+
+- 高内聚
+- 低耦合
+- 单一职责
+- 明确的模块边界
+- 最小化模块之间的直接依赖
+- 优先使用简单、清晰、可维护的设计
+- 避免过度设计
+
+业务模块之间应尽量保持独立。
+
+禁止为了开发方便，将大量业务逻辑集中到单个文件或单个模块。
+
+---
+
+# 模块化原则
+
+项目按照业务领域进行模块拆分。
+
+例如：
+
+```text
+content
+media
+publishing
+analytics
+user
+ai
+```
+
+每个业务模块应该：
+
+- 拥有明确职责
+- 尽量独立
+- 降低对其他模块的直接依赖
+- 通过明确的接口进行交互
+
+禁止：
+
+- 循环依赖
+- 跨模块直接访问内部实现
+- 大量共享全局状态
+- 为了复用而建立不必要的公共抽象
+
+---
+
+# 数据核心原则
+
+项目中的业务数据必须具备：
+
+- 可追溯
+- 可恢复
+- 可审计
+- 可版本化
+
+## 禁止删除数据
+
+项目默认禁止任何形式的数据删除。
+
+包括：
+
+- 硬删除
+- 软删除
+- 物理删除
+- 通过 `deleted_at` 删除
+- 通过 `is_deleted` 删除
+- 通过状态字段模拟删除
+
+如果业务需求涉及删除：
+
+**AI Agent 必须停止实现并向用户确认。**
+
+---
+
+# 数据版本原则
+
+需要保留历史的数据必须进行版本化。
+
+数据发生变化时：
+
+```text
+旧版本
+   ↓
+保留
+   ↓
+创建新版本
+   ↓
+version + 1
+   ↓
+新版本成为当前版本
+```
+
+禁止通过覆盖数据导致历史版本丢失。
+
+---
+
+# 默认数据访问原则
+
+默认：
+
+```text
+读取 → 最新版本
+写入 → 基于最新版本创建新版本
+```
+
+历史版本只能在业务明确指定版本时访问。
+
+例如：
+
+```text
+GET /resource/1001
+```
+
+默认：
+
+```text
+version = latest
+```
+
+如果明确指定：
+
+```text
+GET /resource/1001?version=2
+```
+
+才读取历史版本。
+
+---
+
+# 数据一致性
+
+所有数据变更必须保证：
+
+- 事务一致性
+- 数据完整性
+- 并发安全
+- 版本一致性
+- 幂等性
+
+具体数据库事务、锁、并发实现规则由对应技术目录下的 `AGENTS.md` 定义。
+
+---
+
+# 开发流程
+
+AI Agent 修改代码之前必须：
+
+1. 阅读适用范围内的 `AGENTS.md`
+2. 检查当前项目结构
+3. 检查 Git 状态
+4. 理解相关代码
+5. 确认模块依赖关系
+6. 制定最小修改方案
+7. 再开始修改
+
+---
+
+# 最小改动原则
+
+一次只完成一个明确任务。
+
+禁止：
+
+> 顺便重构其他模块。
+
+禁止：
+
+> 顺便升级项目依赖。
+
+禁止：
+
+> 顺便重新设计架构。
+
+禁止：
+
+> 顺便实现未来功能。
+
+如果发现其他问题：
+
+记录问题，但不要擅自修改。
+
+---
+
+# 测试原则
+
+新增功能原则上必须增加对应测试。
+
+完成任务后必须：
+
+1. 运行相关测试
+2. 检查运行错误
+3. 检查类型或静态检查错误
+4. 检查 Git Diff
+5. 确认没有修改无关文件
+6. 汇报测试结果
+
+---
+
+# Git 规则
+
+Git 用于管理项目版本。
+
+原则：
+
+- 一个 Commit 对应一个明确的功能或变更
+- Commit 保持粒度合理
+- 不提交无关修改
+- 不修改历史提交
+- 不强制覆盖远程历史
+
+AI Agent 禁止擅自执行：
+
+```bash
+git reset --hard
+git push --force
+git rebase
+```
+
+除非用户明确要求。
+
+---
+
+# AI Agent 通用规则
+
+AI Agent 必须：
+
+- 先理解，再修改
+- 优先复用现有代码
+- 优先使用简单方案
+- 保持模块边界
+- 保持代码可测试
+- 避免重复代码
+- 避免不必要的依赖
+- 小步迭代
+
+AI Agent 禁止：
+
+- 擅自进行大型架构调整
+- 擅自增加大型依赖
+- 擅自删除文件
+- 擅自删除数据
+- 擅自修改 Git 历史
+- 擅自实现未来功能
+- 一次实现多个无关功能
+
+---
+
+# 重大变更
+
+以下情况必须先向用户说明方案并等待确认：
+
+- 修改整体架构
+- 修改核心数据模型
+- 引入新的基础设施
+- 引入大型第三方依赖
+- 修改模块边界
+- 修改数据版本策略
+- 修改事务策略
+- 修改认证与权限体系
+
+---
+
+# 文件修改原则
+
+修改文件之前：
+
+```text
+读取
+ ↓
+理解
+ ↓
+修改
+ ↓
+测试
+ ↓
+Review
+```
+
+禁止：
+
+- 未读取相关代码直接修改
+- 为了小功能进行大规模重构
+- 修改无关文件
+
+---
+
+# 问题处理原则
+
+如果需求不明确：
+
+**不要猜测。**
+
+如果存在多个合理方案：
+
+**先说明方案、优缺点和推荐方案。**
+
+如果发现潜在架构问题：
+
+**记录并向用户说明，不要擅自重构。**
+
+如果发现数据删除需求：
+
+**停止并向用户确认。**
+
+---
+
+# 任务汇报规范
+
+每次完成任务后必须按照以下结构汇报：
+
+```text
+## Changes
+
+修改了什么。
+
+## Files
+
+新增、修改、删除了哪些文件。
+
+## Verification
+
+执行了什么测试和验证。
+
+## Git Diff
+
+主要变更。
+
+## Problems
+
+发现的问题。
+
+## Next Step
+
+建议的下一步。
+```
+
+---
+
+# 项目优先级
+
+当多个目标发生冲突时：
+
+```text
+数据正确性
+    ↓
+安全性
+    ↓
+事务一致性
+    ↓
+并发安全
+    ↓
+可维护性
+    ↓
+可测试性
+    ↓
+可扩展性
+    ↓
+性能
+    ↓
+开发速度
+```
