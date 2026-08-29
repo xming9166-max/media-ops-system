@@ -4,18 +4,63 @@
 
 ## 当前状态
 
-本项目当前处于工程初始化阶段。
+本项目已完成 React 前端基础工程搭建（骨架阶段），尚未实现任何业务功能。
 
 已完成：
 
-- 目录结构规划
+- React + Vite + TypeScript 工程搭建
+- 分层目录结构落地
+- 统一 HTTP 客户端（Axios，Base URL 通过环境变量配置）
 - 前端开发规范建立（`frontend/AGENTS.md`）
 
-待完成：
+## 技术栈
 
-- React + Vite 基础骨架搭建
-- 依赖安装
-- 基础组件库集成
+- React 19
+- TypeScript
+- Vite
+- React Router
+- Ant Design
+- TanStack Query
+- Zustand（已安装，暂无实际 Store）
+- Axios
+- ESLint
+- Vitest + Testing Library + jsdom
+
+## 开发环境要求
+
+- Node.js >= 24（推荐使用当前 LTS）
+- npm >= 11
+
+## 安装依赖
+
+```bash
+npm install
+```
+
+## 启动开发服务器
+
+```bash
+npm run dev
+```
+
+## 构建
+
+```bash
+npm run build
+```
+
+## 测试
+
+```bash
+npm run test
+npm run test:watch
+```
+
+## Lint
+
+```bash
+npm run lint
+```
 
 ## 目录结构
 
@@ -38,16 +83,16 @@ frontend/
 │   ├── constants/        # 常量
 │   └── styles/           # 全局样式
 ├── public/               # 静态资源
-├── tests/                # 测试目录
-└── docs/                 # 文档
+└── tests/                # 测试目录
 ```
 
-## 技术栈
+## 环境变量
 
-- React
-- TypeScript
+复制 `.env.example` 为 `.env` 后按需修改：
 
-具体构建工具、UI 库、状态管理库等由后续骨架阶段确定。
+```bash
+VITE_API_BASE_URL=http://localhost:8000
+```
 
 ## 详细规范
 
