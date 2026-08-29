@@ -80,6 +80,7 @@
 - 涉及中间件 → `/docs/middleware/<name>.md`
 - 涉及业务规则 → `/docs/business/<name>.md`
 - 涉及复杂组件 → `/docs/components/<name>.md`
+- 涉及 API 契约 → `/docs/http/api-contract.md`
 
 **禁止**：修改单个功能时读取整个 docs/。
 

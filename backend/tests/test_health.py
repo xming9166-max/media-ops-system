@@ -39,6 +39,21 @@ def test_health_check_returns_200() -> None:
     assert response.status_code == 200
 
 
-def test_health_check_returns_ok_status() -> None:
+def test_health_check_returns_contract_format() -> None:
     response = client.get("/api/v1/health")
-    assert response.json() == {"status": "ok"}
+    body = response.json()
+    assert body["code"] == 0
+    assert body["message"] == "ok"
+    assert body["data"] == {"status": "ok"}
+    assert body["request_id"]
+
+
+def test_health_check_returns_request_id_in_header() -> None:
+    response = client.get("/api/v1/health")
+    assert response.headers["X-Request-ID"] == response.json()["request_id"]
+
+
+def test_request_id_reused_when_provided() -> None:
+    response = client.get("/api/v1/health", headers={"X-Request-ID": "trace-abc"})
+    assert response.headers["X-Request-ID"] == "trace-abc"
+    assert response.json()["request_id"] == "trace-abc"
