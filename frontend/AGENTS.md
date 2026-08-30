@@ -22,7 +22,16 @@
 - **constants**：常量
 - **styles**：全局样式
 
-技术栈：UI → React / TS / Build → Vite / Routing → React Router / UI Components → Ant Design / Server State → TanStack Query / Client Global State → Zustand
+技术栈：
+
+- 框架：React + TypeScript
+- 构建：Vite
+- 路由：React Router
+- UI 组件：Ant Design
+- Server State：TanStack Query
+- 全局状态：Zustand
+- HTTP 客户端：Axios
+- 测试：Vitest + Testing Library
 
 ---
 
@@ -31,7 +40,6 @@
 - Feature 默认不直接依赖其他 Feature 的内部文件
 - 不跨模块使用相对路径访问内部实现
 - 公共能力通过共享模块或明确导出的公共接口访问
-- 禁止循环依赖
 - 不要为了复用而过早抽象
 
 ---
