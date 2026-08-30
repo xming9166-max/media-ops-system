@@ -1,6 +1,6 @@
 """请求级中间件。"""
 
-from typing import Any, Awaitable, Callable
+from collections.abc import Awaitable, Callable
 
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request

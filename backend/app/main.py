@@ -59,9 +59,7 @@ async def validation_exception_handler(
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception) -> ApiResponse:
     """未捕获异常统一兜底为 500 / 50000，不向外泄露内部细节。"""
-    logger.exception(
-        "unhandled exception: %s %s", request.method, request.url.path
-    )
+    logger.exception("unhandled exception: %s %s", request.method, request.url.path)
     return ApiResponse.error(
         http_status=500,
         code=ApiCode.INTERNAL_ERROR,

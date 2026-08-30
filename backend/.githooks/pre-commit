@@ -1,0 +1,19 @@
+#!/bin/sh
+# pre-commit 钩子：提交前对后端代码执行 ruff 格式检查 + lint，失败则拒绝提交。
+# 激活方式（每个克隆仓库执行一次）：git config core.hooksPath backend/.githooks
+# 紧急绕过（应极少使用）：git commit --no-verify
+
+echo "pre-commit: running ruff checks..."
+cd backend || exit 1
+
+if ! .venv/bin/ruff format --check .; then
+  echo "✗ 格式检查未通过，请先执行: cd backend && .venv/bin/ruff format ."
+  exit 1
+fi
+
+if ! .venv/bin/ruff check .; then
+  echo "✗ lint 未通过，可执行: cd backend && .venv/bin/ruff check --fix ."
+  exit 1
+fi
+
+echo "✓ ruff checks passed"
