@@ -70,6 +70,19 @@ cd backend
 | `API_V1_PREFIX` | `str` | `/api/v1` | API 路由前缀 |
 | `CORS_ORIGINS` | `list[str]`（JSON 数组） | 本地 5173 来源 | 允许跨域的前端来源 |
 
+### 日志配置键
+
+日志系统说明与字段规范见 `docs/middleware/logging.md`。全部日志配置键（`LOG_ENABLED` / `LOG_OUTPUT` / `LOG_LEVEL` / `LOG_DIR` / `LOG_ACCESS_BODY` / `LOG_BODY_MAX_BYTES` / `LOG_SLOW_REQUEST_MS` / `LOG_TRUST_PROXY_HEADERS`）的类型、默认值、说明与推断规则，以 `docs/middleware/logging.md` 为唯一权威来源，env 模板 `env/*.example` 同步；本处不再重复列表。
+
+
+输出文件（`FILE` / `BOTH` 时位于 `backend/logs/`）：
+
+- `access.log`：HTTP 访问日志（`log_type=access`，级别 `< ERROR`）
+- `app.log`：业务 INFO / WARNING 日志（`log_type=app`，级别 `< ERROR`）
+- `error.log`：ERROR / CRITICAL 与异常堆栈（任意 `log_type`，级别 `>= ERROR`）
+
+所有输出均为**单行 JSON**，字段恒定，可直接对接 Loki / ELK / Grafana / OpenTelemetry。
+
 ### 示例
 
 ```bash

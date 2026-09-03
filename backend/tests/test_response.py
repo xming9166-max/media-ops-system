@@ -102,3 +102,19 @@ def test_unhandled_exception_returns_internal_error() -> None:
     assert body["code"] == ApiCode.INTERNAL_ERROR
     assert body["message"] == "服务器内部错误"
     assert body["data"] is None
+
+
+def test_request_id_rejects_malicious_and_falls_back_to_uuid() -> None:
+    bad = ['a"b\n<x>y</x>', "x" * 200, "space in id"]
+    for h in bad:
+        r = client.get("/success", headers={"X-Request-ID": h})
+        rid = r.json()["request_id"]
+        _assert_uuid4(rid)
+        assert r.headers["X-Request-ID"] == rid
+
+
+def test_request_id_returns_valid_custom_value() -> None:
+    for h in ("client-trace", "A1_b.c", "550e8400-e29b-41d4-a716-446655440000"):
+        r = client.get("/success", headers={"X-Request-ID": h})
+        assert r.json()["request_id"] == h
+        assert r.headers["X-Request-ID"] == h

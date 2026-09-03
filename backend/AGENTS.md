@@ -134,6 +134,19 @@ Database
 
 ---
 
+## Logging 规范
+
+业务代码统一使用 `app.core.logging` 提供的结构化 Logger，**禁止使用 `print`**。
+
+- 业务 / 应用日志：`from app.core.logging import get_app_logger`，`logger = get_app_logger(__name__)`
+- 错误日志：`from app.core.logging import get_error_logger`
+- 通过 `extra={...}` 注入业务字段（`action` / `success` / `error_code` / `entity_type` / `entity_id` / `duration_ms` / `context` 等，字段规范见 `docs/middleware/logging.md`）
+- 禁止业务代码自行处理 request_id、耗时计算、日志格式、敏感信息脱敏——这些由日志基础设施统一完成
+- 禁止因 `logger.info(request.dict())` 等操作把敏感信息直接写入日志；脱敏由基础设施层集中处理
+- 新增配置键必须加入 `app/core/config.py` 的 `Settings` 字段，并同步更新 `env/*.example` 模板
+
+---
+
 ## Testing
 
 新增后端功能必须考虑测试，至少覆盖：正常流程、参数错误、业务异常、数据库异常、并发冲突、重复请求、事务回滚。
