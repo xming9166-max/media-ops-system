@@ -19,6 +19,7 @@ from sqlalchemy import DateTime, Index, Integer, String, select
 from sqlalchemy.orm import Mapped, Session, mapped_column
 
 from app.core.db.base import Base
+from app.core.db.session import get_current_session
 from app.core.db.transaction import commit_or_rollback
 
 
@@ -60,8 +61,9 @@ class MoveToArchiveRepositoryMixin:
     model: type[Base]
     history_model: type[Base]
 
-    def __init__(self, session: Session) -> None:
-        self.session = session
+    def __init__(self, session: Session | None = None) -> None:
+        # 显式传入优先;缺省从 contextvar 自动取(方案一,同 RepositoryBase).
+        self.session = session or get_current_session()
 
     def _commit_if_needed(self, _commit: bool) -> None:
         """按需提交事务.

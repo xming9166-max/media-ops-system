@@ -4,18 +4,26 @@
 - engine 懒初始化:mysql_dsn 为空则返回 None,服务可无库启动.
 - pool_pre_ping=True 防断线僵尸连接.
 - get_session 为每请求建立 Session,结束时 close;提交由 Service 显式控制.
+- 当前请求 Session 存入 contextvar(单请求单 Session 约定),
+  Repository 可通过 get_current_session() 缺省取用,无需显式传递.
 """
 
 from collections.abc import Generator
+from contextvars import ContextVar, Token
 
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
+from starlette.requests import Request
 
 from app.core.config import settings
 
 _engine: Engine | None = None
 _SessionLocal: sessionmaker[Session] | None = None
+
+# 当前请求的 Session(单请求单 Session 约定).
+# 与 request_id 同构的 contextvar 模式:依赖进入时 set,退出时 reset.
+_session_var: ContextVar[Session | None] = ContextVar("db_session", default=None)
 
 
 def get_engine() -> Engine | None:
@@ -37,17 +45,35 @@ def get_engine() -> Engine | None:
     return _engine
 
 
-def get_session() -> Generator[Session, None, None]:
+def get_current_session() -> Session | None:
+    """读取当前请求上下文中的 Session.
+
+    请求链路内(经过 get_session 依赖)返回该 Session;
+    非请求上下文(脚本/测试/Celery)返回 None.
+    """
+    return _session_var.get()
+
+
+def get_session(request: Request) -> Generator[Session, None, None]:
     """FastAPI 依赖:每请求一个 Session,结束统一 close.
 
-    提交/回滚由 Service 在事务边界显式调用,本依赖只负责生命周期.
+    写入两处(单请求单 Session 约定):
+    - contextvar:供请求链路内 Repository 缺省取用(get_current_session).
+    - request.state.db_session:供 CommitMiddleware 兜底读取——
+      BaseHTTPMiddleware 的 call_next 在独立 task 中运行,依赖内 set 的
+      contextvar 不会传播回中间件,必须经 scope 共享的 request.state.
+
+    退出时 reset + close.提交/回滚由 Service 显式调用或中间件兜底.
     """
     if _SessionLocal is None:
         # 未配置数据库时 yield 一个占位,调用方若真用会报错.
         yield None  # type: ignore[misc]
         return
     session = _SessionLocal()
+    token: Token[Session | None] = _session_var.set(session)
+    request.state.db_session = session
     try:
         yield session
     finally:
+        _session_var.reset(token)
         session.close()

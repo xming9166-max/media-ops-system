@@ -14,6 +14,7 @@ from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
 from app.core.db.base import Base
+from app.core.db.session import get_current_session
 from app.core.db.transaction import commit_or_rollback
 
 ModelT = TypeVar("ModelT", bound=Base)
@@ -22,13 +23,15 @@ ModelT = TypeVar("ModelT", bound=Base)
 class RepositoryBase(Generic[ModelT]):  # noqa: UP046
     """单表通用 CRUD 基类.
 
-    子类需声明 ``model: type[ModelT]`` 并在构造时传入 Session.
+    session 获取策略(方案一):
+    - 显式传入优先(脚本/测试/多 session 场景);
+    - 缺省从 contextvar 自动取当前请求 Session(单请求单 Session 约定).
     """
 
     model: type[ModelT]
 
-    def __init__(self, session: Session) -> None:
-        self.session = session
+    def __init__(self, session: Session | None = None) -> None:
+        self.session = session or get_current_session()
 
     def _commit_if_needed(self, _commit: bool) -> None:
         """按需提交事务.

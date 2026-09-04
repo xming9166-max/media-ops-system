@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.core.errors import ApiCode, ApiException
 from app.core.logging import get_app_logger, get_error_logger, setup_logging
-from app.core.middleware import AccessLogMiddleware, RequestIDMiddleware
+from app.core.middleware import AccessLogMiddleware, CommitMiddleware, RequestIDMiddleware
 from app.core.request_id import reset_request_id, set_request_id
 from app.core.response import ApiResponse
 
@@ -22,7 +22,7 @@ app = FastAPI(
 
 # 中间件注册顺序：后添加者更外层。
 # RequestID 最外层（设置 request_id 上下文）→ AccessLog 在其内层（写日志时 request_id 仍存活）
-# → CORS 最内层
+# → Commit 在其内层（业务返回后兜底提交/回滚）→ CORS 最内层
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
@@ -30,6 +30,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(CommitMiddleware)
 app.add_middleware(AccessLogMiddleware)
 app.add_middleware(RequestIDMiddleware)
 

@@ -7,6 +7,7 @@ from starlette.requests import Request
 from starlette.responses import Response
 
 from app.core.config import settings
+from app.core.db.transaction import commit_or_rollback, has_pending
 from app.core.logging import get_access_logger
 from app.core.request_id import get_request_id, reset_request_id, set_request_id
 
@@ -189,4 +190,36 @@ class AccessLogMiddleware(BaseHTTPMiddleware):
         return ""
 
 
-__all__: list[str] = ["RequestIDMiddleware", "AccessLogMiddleware"]
+class CommitMiddleware(BaseHTTPMiddleware):
+    """统一入口兜底提交/回滚中间件(只注册一次,全 API 生效).
+
+    语义:
+    - 请求正常返回:当前 Session 有未提交变更 → commit_or_rollback 提交;
+      无变更(纯读) → 跳过,不做无谓提交.
+    - 请求抛异常:回滚当前 Session,再原样抛出交由上层异常处理器.
+
+    Session 从 ``request.state.db_session`` 读取(get_session 依赖写入):
+    BaseHTTPMiddleware 的 call_next 在独立 task 中运行,依赖内 set 的
+    contextvar 不会传播回中间件,必须经 scope 共享的 request.state.
+    无 Session(未配置数据库/未声明依赖)时跳过.
+    """
+
+    async def dispatch(
+        self,
+        request: Request,
+        call_next: Callable[[Request], Awaitable[Response]],
+    ) -> Response:
+        try:
+            response = await call_next(request)
+        except Exception:
+            session = getattr(request.state, "db_session", None)
+            if session is not None:
+                session.rollback()
+            raise
+        session = getattr(request.state, "db_session", None)
+        if session is not None and has_pending(session):
+            commit_or_rollback(session)
+        return response
+
+
+__all__: list[str] = ["RequestIDMiddleware", "AccessLogMiddleware", "CommitMiddleware"]
