@@ -2,7 +2,8 @@
 
 职责边界:
 - 只封装真·通用操作;业务特有查询由各模块 Repository 继承后自定义.
-- 不 commit、不开启事务,事务边界由 Service 显式控制.
+- 写操作默认不 commit,事务边界由 Service 显式控制;
+  当 ``_commit=True`` 时由 Repository 提交当前事务(便捷模式).
 - 不含删除语义(删除由 soft_delete 模块提供).
 """
 
@@ -28,57 +29,90 @@ class RepositoryBase(Generic[ModelT]):  # noqa: UP046
     def __init__(self, session: Session) -> None:
         self.session = session
 
+    def _commit_if_needed(self, _commit: bool) -> None:
+        """按需提交事务.
+
+        _commit=True:Repository 代为提交(便捷模式).
+        _commit=False:默认,不提交,由 Service 显式控制事务边界.
+        """
+        if _commit:
+            self.session.commit()
+
     # ---------- 写入 ----------
 
-    def add(self, obj: ModelT) -> ModelT:
-        """插入单条(只 add,不 commit)."""
+    def add(self, obj: ModelT, _commit: bool = False) -> ModelT:
+        """插入单条.
+
+        _commit=True 时提交;默认 False,由 Service 显式提交.
+        """
         self.session.add(obj)
+        self._commit_if_needed(_commit)
         return obj
 
-    def add_all(self, objs: list[ModelT]) -> None:
-        """批量插入(只 add_all,不 commit)."""
-        self.session.add_all(objs)
+    def add_all(self, objs: list[ModelT], _commit: bool = False) -> None:
+        """批量插入.
 
-    def save(self, obj: ModelT) -> ModelT:
-        """更新已加载对象(纳入 session + flush,不 commit)."""
+        _commit=True 时提交;默认 False,由 Service 显式提交.
+        """
+        self.session.add_all(objs)
+        self._commit_if_needed(_commit)
+
+    def save(self, obj: ModelT, _commit: bool = False) -> ModelT:
+        """更新已加载对象(纳入 session + flush).
+
+        _commit=True 时提交;默认 False,由 Service 显式提交.
+        """
         self.session.add(obj)
         self.session.flush()
+        self._commit_if_needed(_commit)
         return obj
 
-    def save_all(self, objs: Sequence[ModelT]) -> None:
-        """批量更新已加载对象."""
+    def save_all(self, objs: Sequence[ModelT], _commit: bool = False) -> None:
+        """批量更新已加载对象.
+
+        _commit=True 时提交;默认 False,由 Service 显式提交.
+        """
         for obj in objs:
             self.session.add(obj)
         self.session.flush()
+        self._commit_if_needed(_commit)
 
-    def bulk_insert(self, rows: list[dict[str, Any]]) -> int:
+    def bulk_insert(self, rows: list[dict[str, Any]], _commit: bool = False) -> int:
         """大批量导入(Core insert 一次性拼接,跳过 ORM 事件).
 
         返回受影响行数.适用于导入场景,内存友好.
+        _commit=True 时提交;默认 False,由 Service 显式提交.
         注意:created_at 等 server_default 由 DB 端填充,仍会写入.
         """
         if not rows:
             return 0
         self.session.execute(self.model.__table__.insert(), rows)
+        self._commit_if_needed(_commit)
         return len(rows)
 
-    def update_by(self, values: dict[str, Any], **filters: Any) -> int:
+    def update_by(self, values: dict[str, Any], _commit: bool = False, **filters: Any) -> int:
         """条件批量修改(Core bulk,绕乐观锁).
 
         仅用于非并发敏感的后台批量(状态流转/数据修复等).
         需显式在 values 中传 updated_at=func.now(),否则时间戳不变.
+        _commit=True 时提交;默认 False,由 Service 显式提交.
         返回受影响行数.
         """
         stmt = update(self.model).filter_by(**filters).values(**values)
         result = self.session.execute(stmt)
+        self._commit_if_needed(_commit)
         return result.rowcount
 
-    def update_by_ids(self, ids: list[int], values: dict[str, Any]) -> int:
-        """按主键列表批量修改(绕乐观锁).语义同 update_by."""
+    def update_by_ids(self, ids: list[int], values: dict[str, Any], _commit: bool = False) -> int:
+        """按主键列表批量修改(绕乐观锁).语义同 update_by.
+
+        _commit=True 时提交;默认 False,由 Service 显式提交.
+        """
         if not ids:
             return 0
         stmt = update(self.model).where(self.model.id.in_(ids)).values(**values)
         result = self.session.execute(stmt)
+        self._commit_if_needed(_commit)
         return result.rowcount
 
     # ---------- 读取 ----------

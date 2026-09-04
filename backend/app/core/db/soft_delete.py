@@ -62,10 +62,20 @@ class MoveToArchiveRepositoryMixin:
     def __init__(self, session: Session) -> None:
         self.session = session
 
-    def delete(self, obj: Any, *, reason: str | None = None) -> None:
+    def _commit_if_needed(self, _commit: bool) -> None:
+        """按需提交事务.
+
+        _commit=True:Repository 代为提交(便捷模式).
+        _commit=False:默认,不提交,由 Service 显式控制事务边界.
+        """
+        if _commit:
+            self.session.commit()
+
+    def delete(self, obj: Any, *, reason: str | None = None, _commit: bool = False) -> None:
         """删除 = INSERT 历史 + DELETE 主表(原子归档).
 
-        事务由 Service 提交;任一步失败全回滚.
+        _commit=True 时提交;默认 False,由 Service 显式提交.
+        任一步失败全回滚.
         """
         snapshot = {c.name: getattr(obj, c.name) for c in obj.__table__.columns}
         # 显式字段 + 业务字段快照(id/created_at/updated_at 由历史表自身生成或无需保留)
@@ -80,17 +90,21 @@ class MoveToArchiveRepositoryMixin:
         self.session.add(history)
         self.session.flush()
         self.session.delete(obj)
+        self.session.flush()
+        self._commit_if_needed(_commit)
 
     def restore(
         self,
         history_id: int,
         *,
         mode: RestoreMode = RestoreMode.RESTORE_OR_FAIL,
+        _commit: bool = False,
     ) -> Any:
         """恢复历史记录.
 
         路径 A(默认):原地恢复,冲突 40900.
         路径 B(FORCE_NEW):以快照新建活跃记录.
+        _commit=True 时提交;默认 False,由 Service 显式提交.
         """
         history = self.session.get(self.history_model, history_id)
         if history is None:
@@ -105,7 +119,9 @@ class MoveToArchiveRepositoryMixin:
         }
 
         if mode is RestoreMode.FORCE_NEW:
-            return self._create_new(snapshot, history)
+            obj = self._create_new(snapshot, history)
+            self._commit_if_needed(_commit)
+            return obj
 
         # RESTORE_OR_FAIL:检查业务键是否被占用
         existing = self.session.execute(
@@ -119,7 +135,9 @@ class MoveToArchiveRepositoryMixin:
                 code=ApiCode.CONFLICT,
                 message=f"business_key '{history.business_key}' already in use",
             )
-        return self._create_new(snapshot, history, restore_mark=True)
+        obj = self._create_new(snapshot, history, restore_mark=True)
+        self._commit_if_needed(_commit)
+        return obj
 
     def _create_new(
         self, snapshot: dict[str, Any], history: Any, *, restore_mark: bool = False

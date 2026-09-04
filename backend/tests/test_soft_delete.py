@@ -161,3 +161,40 @@ def test_list_history_and_count() -> None:
     assert repo.count_history() == 3
     items = repo.list_history(offset=0, limit=2, order_by="-deleted_at")
     assert len(items) == 2
+
+
+def test_delete_with_commit_persists() -> None:
+    """delete(_commit=True) 应提交:主表移除 + 历史落档,无需手动 commit."""
+    repo = _make_repo()
+    acc = _seed(repo)
+    repo.delete(acc, reason="auto-commit", _commit=True)
+
+    assert repo.get(acc.id) is None
+    history = repo.list_history(limit=10)
+    assert len(history) == 1
+    assert history[0].delete_reason == "auto-commit"
+
+
+def test_restore_with_commit_persists() -> None:
+    """restore(_commit=True) 应提交:活跃记录恢复 + restored_at 标记."""
+    repo = _make_repo()
+    acc = _seed(repo)
+    repo.delete(acc, _commit=True)
+
+    history = repo.list_history(limit=10)[0]
+    restored = repo.restore(history.id, _commit=True)
+
+    assert repo.get(restored.id) is not None
+    repo.session.expire_all()
+    assert repo.get_history(history.id).restored_at is not None
+
+
+def test_soft_delete_default_no_commit_rollback_safe() -> None:
+    """默认 _commit=False:rollback 后主表与历史均回到删除前状态."""
+    repo = _make_repo()
+    acc = _seed(repo)
+    repo.delete(acc, reason="no-commit")
+
+    repo.session.rollback()
+    assert repo.get(acc.id) is not None
+    assert repo.count_history() == 0

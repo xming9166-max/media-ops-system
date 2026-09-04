@@ -125,3 +125,56 @@ def test_refresh_reloads_from_db() -> None:
     obj.name = "dirty"
     repo.refresh(obj)
     assert obj.name == "orig"
+
+
+def test_add_with_commit_persists() -> None:
+    """_commit=True 时应提交事务,数据在 session 中可见."""
+    repo = _make_repo()
+    repo.add(_Item(name="committed"), _commit=True)
+    # 无需手动 commit,数据应已可见
+    assert repo.count() == 1
+    assert repo.get_by(name="committed") is not None
+
+
+def test_save_with_commit_persists() -> None:
+    """save(_commit=True) 应提交更新."""
+    repo = _make_repo()
+    obj = repo.add(_Item(name="old"))
+    repo.session.commit()
+
+    obj.name = "new"
+    repo.save(obj, _commit=True)
+    # 清除 session 缓存,强制从 DB 重新加载
+    repo.session.expire_all()
+    assert repo.get(obj.id).name == "new"
+
+
+def test_bulk_insert_with_commit() -> None:
+    """bulk_insert(_commit=True) 应提交."""
+    repo = _make_repo()
+    n = repo.bulk_insert([{"name": f"c{i}"} for i in range(5)], _commit=True)
+    assert n == 5
+    assert repo.count() == 5
+
+
+def test_update_by_with_commit() -> None:
+    """update_by(_commit=True) 应提交批量修改."""
+    repo = _make_repo()
+    for i in range(3):
+        repo.add(_Item(name=f"uc{i}"))
+    repo.session.commit()
+
+    from sqlalchemy import func
+
+    affected = repo.update_by({"name": "updated", "updated_at": func.now()}, _commit=True)
+    assert affected == 3
+    assert repo.count(name="updated") == 3
+
+
+def test_default_behavior_no_commit() -> None:
+    """默认 _commit=False 时,操作未提交,rollback 后数据消失."""
+    repo = _make_repo()
+    repo.add(_Item(name="uncommitted"))
+    # 未 commit,rollback 后数据应消失
+    repo.session.rollback()
+    assert repo.count() == 0
