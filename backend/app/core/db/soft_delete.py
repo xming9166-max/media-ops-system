@@ -19,6 +19,7 @@ from sqlalchemy import DateTime, Index, Integer, String, select
 from sqlalchemy.orm import Mapped, Session, mapped_column
 
 from app.core.db.base import Base
+from app.core.db.transaction import commit_or_rollback
 
 
 class RestoreMode(StrEnum):
@@ -65,11 +66,11 @@ class MoveToArchiveRepositoryMixin:
     def _commit_if_needed(self, _commit: bool) -> None:
         """按需提交事务.
 
-        _commit=True:Repository 代为提交(便捷模式).
+        _commit=True:Repository 代为提交(便捷模式);失败回滚后原样抛出.
         _commit=False:默认,不提交,由 Service 显式控制事务边界.
         """
         if _commit:
-            self.session.commit()
+            commit_or_rollback(self.session)
 
     def delete(self, obj: Any, *, reason: str | None = None, _commit: bool = False) -> None:
         """删除 = INSERT 历史 + DELETE 主表(原子归档).

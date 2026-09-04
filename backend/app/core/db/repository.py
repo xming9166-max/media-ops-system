@@ -14,6 +14,7 @@ from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
 from app.core.db.base import Base
+from app.core.db.transaction import commit_or_rollback
 
 ModelT = TypeVar("ModelT", bound=Base)
 
@@ -32,11 +33,11 @@ class RepositoryBase(Generic[ModelT]):  # noqa: UP046
     def _commit_if_needed(self, _commit: bool) -> None:
         """按需提交事务.
 
-        _commit=True:Repository 代为提交(便捷模式).
+        _commit=True:Repository 代为提交(便捷模式);失败回滚后原样抛出.
         _commit=False:默认,不提交,由 Service 显式控制事务边界.
         """
         if _commit:
-            self.session.commit()
+            commit_or_rollback(self.session)
 
     # ---------- 写入 ----------
 
