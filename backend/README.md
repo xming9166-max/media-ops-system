@@ -99,3 +99,44 @@ APP_ENV=pro APP_NAME=media-ops CORS_ORIGINS='["https://ops.example.com"]' .venv/
 > 注意：`env/` 下只有 `*.example` 模板入库；`.env.dev`、`.env.test`、`.env.pro`
 > 等真实环境文件已被 `.gitignore` 忽略。禁止提交真实密钥。
 
+## 数据库
+
+依赖:`sqlalchemy` + `PyMySQL` + `alembic`。
+
+### 本地依赖服务
+
+```bash
+# 仓库根目录启动 MySQL(生产由部署环境管理,不使用 docker compose)
+docker compose up -d mysql
+
+# 连接串写入 env/.env.dev
+# MYSQL_DSN=mysql+pymysql://root:root@127.0.0.1:3306/media_ops
+```
+
+### 配置键
+
+| 环境变量 | 类型 | 默认值 | 说明 |
+|---|---|---|---|
+| `MYSQL_DSN` | `str` | `""`(未启用) | 数据库连接串,空则服务可无库启动 |
+| `DB_POOL_SIZE` | `int` | `10` | 连接池大小 |
+| `DB_MAX_OVERFLOW` | `int` | `20` | 池溢出上限 |
+| `DB_POOL_RECYCLE` | `int` | `3600` | 连接回收秒数 |
+| `DB_ECHO` | `bool` | `false` | 是否打印 SQL |
+
+### 迁移
+
+```bash
+cd backend
+
+# 生成迁移(基于模型变化自动检测,需先连数据库)
+.venv/bin/alembic revision --autogenerate -m "描述"
+
+# 执行迁移
+.venv/bin/alembic upgrade head
+
+# 回滚一步
+.venv/bin/alembic downgrade -1
+```
+
+> 开发环境可用 `alembic upgrade head` 直接应用;生产环境建议导出 SQL 走变更流程。
+
