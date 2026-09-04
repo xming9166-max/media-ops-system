@@ -81,6 +81,15 @@ class Settings(BaseSettings):
     log_slow_request_ms: int = 1000  # 慢请求阈值（毫秒），超时访问日志升 WARNING 并打标；0 关闭
     log_trust_proxy_headers: bool | None = None  # 是否信任代理头取客户端 IP；未设置时按 env 推断
 
+    # 数据库配置
+    # mysql_dsn 缺省空串表示未启用数据库（服务可无库启动，避免破坏无库测试）；
+    # 非空时按该 DSN 建立连接池。
+    mysql_dsn: str = ""  # 形如 mysql+pymysql://user:pass@host:3306/dbname
+    db_pool_size: int = 10  # 连接池大小
+    db_max_overflow: int = 20  # 池溢出上限
+    db_pool_recycle: int = 3600  # 连接回收秒数（防断线僵尸连接）
+    db_echo: bool = False  # 是否打印 SQL（dev 调试用，生产关闭）
+
     @model_validator(mode="after")
     def _infer_log_defaults(self) -> "Settings":
         """未显式设置日志键时，按运行环境推断默认值。
