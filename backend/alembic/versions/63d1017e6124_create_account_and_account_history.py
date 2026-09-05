@@ -35,11 +35,11 @@ def upgrade() -> None:
     )
     op.create_index("ix_account_business_key", "account", ["business_key"])
 
-    # 账号历史表(append-only,存储删除时的完整快照)
+    # 账号历史表(<主表名>_history;业务列无唯一约束,append-only)
     op.create_table(
         "account_history",
         sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
-        sa.Column("entity_id", sa.Integer(), nullable=False),
+        sa.Column("source_id", sa.Integer(), nullable=False),
         sa.Column("business_key", sa.String(64), nullable=False),
         sa.Column("name", sa.String(64), nullable=False),
         sa.Column("deleted_at", sa.DateTime(), nullable=False),
@@ -47,18 +47,16 @@ def upgrade() -> None:
         sa.Column("restored_at", sa.DateTime(), nullable=True),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index("ix_account_history_entity_id", "account_history", ["entity_id"])
-    op.create_index("ix_account_history_business_key", "account_history", ["business_key"])
+    op.create_index("ix_account_history_source_id", "account_history", ["source_id"])
     op.create_index("ix_account_history_restored_at", "account_history", ["restored_at"])
-    op.create_index("ix_archive_entity_deleted", "account_history", ["entity_id", "deleted_at"])
+    op.create_index("ix_archive_source_deleted", "account_history", ["source_id", "deleted_at"])
 
 
 def downgrade() -> None:
     """Downgrade schema."""
-    op.drop_index("ix_archive_entity_deleted", table_name="account_history")
+    op.drop_index("ix_archive_source_deleted", table_name="account_history")
     op.drop_index("ix_account_history_restored_at", table_name="account_history")
-    op.drop_index("ix_account_history_business_key", table_name="account_history")
-    op.drop_index("ix_account_history_entity_id", table_name="account_history")
+    op.drop_index("ix_account_history_source_id", table_name="account_history")
     op.drop_table("account_history")
     op.drop_index("ix_account_business_key", table_name="account")
     op.drop_table("account")
