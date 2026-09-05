@@ -1,7 +1,8 @@
 """Alembic 迁移环境配置.
 
 数据库 URL 从 app.core.config.settings.mysql_dsn 注入,
-target_metadata 接 app.core.db.base.Base.metadata 以支持 autogenerate.
+target_metadata 通过 app.core.modules 自动导入所有业务模块模型,
+以支持 autogenerate.
 """
 
 from logging.config import fileConfig
@@ -10,10 +11,7 @@ from sqlalchemy import engine_from_config, pool
 
 from alembic import context
 from app.core.config import settings
-from app.core.db.base import Base
-
-# 导入所有模型,确保 Base.metadata 完整(autogenerate 需要).
-from app.models import Account, AccountHistory  # noqa: F401
+from app.core.modules import get_target_metadata
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -24,8 +22,8 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# 目标元数据:接 Base.metadata 以支持 autogenerate.
-target_metadata = Base.metadata
+# 目标元数据: 自动发现所有业务模块模型.
+target_metadata = get_target_metadata()
 
 
 def run_migrations_offline() -> None:

@@ -2,7 +2,7 @@
 
 ## 项目说明
 
-长期迭代的自媒体运营系统，支持 AI Agent 持续参与开发。
+长期迭代的通用前后端分离系统，支持 AI Agent 持续参与开发。
 
 技术栈：React + TypeScript（前端）、Python + FastAPI（后端）、MySQL、Redis、Celery、Docker。
 
@@ -70,6 +70,7 @@
 **修改后端**：`/AGENTS.md` + `/backend/AGENTS.md`
 
 **根据任务按需读取 docs/**：
+
 - 修改某功能 → `/docs/features/<domain>/README.md`
 - 涉及数据结构 → `/docs/features/<domain>/data.md`
 - 涉及 API → `/docs/features/<domain>/api.md`

@@ -298,6 +298,27 @@ def get_access_logger(name: str) -> logging.LoggerAdapter:
     return _wrap_logger(name, LOG_TYPE_ACCESS)
 
 
+def get_banner_logger() -> logging.Logger:
+    """启动横幅 logger：人类可读、独立于结构化 JSON 日志。
+
+    仅用于启动信息展示（应用启动横幅）。特性：
+
+    - 自定义简洁格式 ``[INFO] 消息``，不输出 JSON 公共字段；
+    - ``propagate=False``，不传播到 ``app`` 根 logger，完全不影响业务 JSON 日志；
+    - 只挂 console handler，不写文件，不污染 ``backend/logs/*``。
+
+    factory.py 启动时调用，输出应用名 / 监听地址 / 文档地址等一次性信息。
+    """
+    logger = logging.getLogger("app.banner")
+    logger.propagate = False
+    logger.setLevel(logging.INFO)
+    if not logger.handlers:  # 幂等：避免重复挂 handler
+        handler = logging.StreamHandler()
+        handler.setFormatter(logging.Formatter("[%(levelname)s] %(message)s"))
+        logger.addHandler(handler)
+    return logger
+
+
 __all__: list[str] = [
     "LOG_TYPE_ACCESS",
     "LOG_TYPE_APP",
@@ -311,4 +332,5 @@ __all__: list[str] = [
     "get_app_logger",
     "get_error_logger",
     "get_access_logger",
+    "get_banner_logger",
 ]

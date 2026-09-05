@@ -7,6 +7,7 @@
   FastAPI 走 CommitMiddleware 统一兜底).
 """
 
+import inspect
 from collections.abc import Callable
 from contextlib import contextmanager
 from functools import wraps
@@ -67,14 +68,28 @@ def auto_commit(fn: Callable[..., Any]) -> Callable[..., Any]:
     - 函数正常返回后,从 contextvar 读当前 Session;
       有未提交变更则提交(失败回滚+抛出),无变更或无 Session 则跳过.
     - 函数抛异常时不做兜底提交(异常交由上层统一处理,调用方决定是否回滚).
+
+    同时支持同步函数与协程函数.
     """
 
+    if inspect.iscoroutinefunction(fn):
+
+        @wraps(fn)
+        async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
+            result = await fn(*args, **kwargs)
+            session = get_current_session()
+            if session is not None and has_pending(session):
+                commit_or_rollback(session)
+            return result
+
+        return async_wrapper
+
     @wraps(fn)
-    def wrapper(*args: Any, **kwargs: Any) -> Any:
+    def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
         result = fn(*args, **kwargs)
         session = get_current_session()
         if session is not None and has_pending(session):
             commit_or_rollback(session)
         return result
 
-    return wrapper
+    return sync_wrapper

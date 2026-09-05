@@ -118,6 +118,44 @@ def test_transaction_rolls_back_on_exception() -> None:
 # ---------- auto_commit 装饰器 ----------
 
 
+def test_auto_commit_async_commits_pending_changes() -> None:
+    """auto_commit 装饰器支持协程函数，正常返回后兜底提交。"""
+    import asyncio
+
+    engine = _make_engine()
+    session = sessionmaker(bind=engine)()
+    token = _session_var.set(session)
+
+    @auto_commit
+    async def business():
+        session.add(_CtxItem(name="async-decorated"))
+
+    try:
+        asyncio.run(business())
+    finally:
+        _session_var.reset(token)
+
+    from sqlalchemy import select
+
+    rows = session.execute(select(_CtxItem)).scalars().all()
+    assert len(rows) == 1
+    assert rows[0].name == "async-decorated"
+
+
+def test_dispose_engine_safe_releases_and_resets() -> None:
+    """dispose_engine 释放已初始化 engine 并清空 _engine/_SessionLocal."""
+    import app.core.db.session as session_mod
+
+    # 拿到或创建 engine
+    engine_before = session_mod.get_engine()
+    if engine_before is None:
+        pytest.skip("未配置数据库,跳过 engine 释放测试")
+    assert session_mod._engine is not None
+    session_mod.dispose_engine()
+    assert session_mod._engine is None
+    assert session_mod._SessionLocal is None
+
+
 def test_auto_commit_commits_pending_changes() -> None:
     engine = _make_engine()
     session = sessionmaker(bind=engine)()

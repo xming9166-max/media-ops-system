@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from sqlalchemy import DateTime, Integer, func
+from sqlalchemy import DateTime, Integer, func, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -37,5 +37,7 @@ class VersionMixin:
     按需继承,不必所有表都带锁.
     """
 
-    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    version: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=1, server_default=text("1")
+    )
     __mapper_args__ = {"version_id_col": version}

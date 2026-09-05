@@ -1,0 +1,22 @@
+#!/bin/sh
+# pre-commit: frontend lint / format
+# 由仓库根 .githooks/pre-commit 路由调用（仅 frontend/** 变更时触发）
+# activate: git config core.hooksPath .githooks
+# bypass: git commit --no-verify
+#
+# 前端检查命令以 package.json scripts 为唯一权威来源（frontend 目录内管理）。
+
+set -e
+
+if [ ! -d node_modules ]; then
+  echo "frontend pre-commit: skip (no node_modules - run npm install)"
+  exit 0
+fi
+
+echo "frontend pre-commit: lint..."
+npm run lint
+
+echo "frontend pre-commit: format check..."
+npm run format:check
+
+echo "frontend pre-commit passed"

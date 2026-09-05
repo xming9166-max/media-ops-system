@@ -2,6 +2,8 @@
 
 from collections.abc import Awaitable, Callable
 
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
@@ -12,6 +14,27 @@ from app.core.logging import get_access_logger
 from app.core.request_id import get_request_id, reset_request_id, set_request_id
 
 logger = get_access_logger(__name__)
+
+
+def register_middleware(app: FastAPI) -> None:
+    """统一注册中间件。
+
+    注册顺序（后添加者更外层）：
+    - RequestID 最外层（设置 request_id 上下文）
+    - AccessLog 在其内层（写日志时 request_id 仍存活）
+    - Commit 在其内层（业务返回后兜底提交/回滚）
+    - CORS 最内层
+    """
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.cors_origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+    app.add_middleware(CommitMiddleware)
+    app.add_middleware(AccessLogMiddleware)
+    app.add_middleware(RequestIDMiddleware)
 
 
 class RequestIDMiddleware(BaseHTTPMiddleware):

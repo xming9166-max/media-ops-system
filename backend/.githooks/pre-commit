@@ -1,23 +1,13 @@
 #!/bin/sh
-# pre-commit: backend ruff + frontend lint
-# activate: git config core.hooksPath backend/.githooks
+# pre-commit: backend ruff checks
+# 由仓库根 .githooks/pre-commit 路由调用（仅 backend/** 变更时触发）
+# activate: git config core.hooksPath .githooks
 # bypass: git commit --no-verify
 
 set -e
 
-echo "pre-commit: ruff checks..."
-cd backend
+echo "backend pre-commit: ruff checks..."
 .venv/bin/ruff format --check .
 .venv/bin/ruff check .
-echo "ruff passed"
+echo "backend ruff passed"
 
-cd ..
-if [ -f frontend/package.json ]; then
-  if [ -d frontend/node_modules ]; then
-    echo "pre-commit: frontend lint..."
-    (cd frontend && npm run lint)
-    echo "frontend lint passed"
-  else
-    echo "skip frontend lint (no node_modules - run npm install)"
-  fi
-fi

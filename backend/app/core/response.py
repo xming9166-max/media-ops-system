@@ -8,6 +8,7 @@ from typing import Any
 
 from fastapi.responses import JSONResponse
 
+from app.core.errors import ApiCode
 from app.core.request_id import get_request_id
 
 
@@ -17,7 +18,7 @@ class ApiResponse(JSONResponse):
     def __init__(
         self,
         http_status: int = 200,
-        code: int = 0,
+        code: int = ApiCode.SUCCESS,
         message: str = "ok",
         data: Any = None,
     ) -> None:
@@ -32,7 +33,7 @@ class ApiResponse(JSONResponse):
     @classmethod
     def success(cls, data: Any = None, message: str = "ok") -> "ApiResponse":
         """成功响应：HTTP 200 / 业务码 0。"""
-        return cls(http_status=200, code=0, message=message, data=data)
+        return cls(http_status=200, code=ApiCode.SUCCESS, message=message, data=data)
 
     @classmethod
     def error(

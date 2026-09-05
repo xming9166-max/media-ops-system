@@ -1,0 +1,28 @@
+#!/bin/sh
+# pre-commit 路由入口（仓库级）
+#
+# 作用：git 钩子是仓库级单入口，无法按子目录自动分发。
+#       本脚本仅做「路径路由」：检测本次暂存文件属于哪一端，
+#       再调用对应端目录下记录的钩子脚本。不在此处内联任何一端的检查逻辑。
+#
+# 各端钩子：
+#   backend/.githooks/pre-commit   —— 后端检查（ruff）
+#   frontend/.githooks/pre-commit  —— 前端检查（lint / format）
+#
+# 激活：git config core.hooksPath .githooks
+# 绕过：git commit --no-verify（应极少使用）
+
+set -e
+
+changed=$(git diff --cached --name-only)
+
+if echo "$changed" | grep -q '^backend/'; then
+  echo "→ pre-commit: 触发后端钩子"
+  (cd backend && ./.githooks/pre-commit)
+fi
+
+if echo "$changed" | grep -q '^frontend/'; then
+  echo "→ pre-commit: 触发前端钩子"
+  (cd frontend && ./.githooks/pre-commit)
+fi
+

@@ -14,10 +14,24 @@ from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
 from app.core.db.base import Base
-from app.core.db.session import get_current_session
+from app.core.db.session import resolve_session
 from app.core.db.transaction import commit_or_rollback
 
 ModelT = TypeVar("ModelT", bound=Base)
+
+
+def resolve_order_by(model: type[Base], order_by: str):
+    """解析排序字段,返回 SQLAlchemy 排序表达式.
+
+    - 支持 ``field`` 升序与 ``-field`` 降序.
+    - 非法列名抛出 ``ValueError``(快速失败,避免 SQLAlchemy 的 AttributeError).
+    """
+    desc = order_by.startswith("-")
+    name = order_by[1:] if desc else order_by
+    if name not in model.__table__.columns:
+        raise ValueError(f"非法排序字段: {name}")
+    column = getattr(model, name)
+    return column.desc() if desc else column.asc()
 
 
 class RepositoryBase(Generic[ModelT]):  # noqa: UP046
@@ -31,7 +45,7 @@ class RepositoryBase(Generic[ModelT]):  # noqa: UP046
     model: type[ModelT]
 
     def __init__(self, session: Session | None = None) -> None:
-        self.session = session or get_current_session()
+        self.session = resolve_session(session)
 
     def _commit_if_needed(self, _commit: bool) -> None:
         """按需提交事务.
@@ -141,10 +155,7 @@ class RepositoryBase(Generic[ModelT]):  # noqa: UP046
         """条件分页列表."""
         stmt = select(self.model).filter_by(**filters)
         if order_by:
-            if order_by.startswith("-"):
-                stmt = stmt.order_by(getattr(self.model, order_by[1:]).desc())
-            else:
-                stmt = stmt.order_by(getattr(self.model, order_by).asc())
+            stmt = stmt.order_by(resolve_order_by(self.model, order_by))
         stmt = stmt.offset(offset).limit(limit)
         return list(self.session.execute(stmt).scalars().all())
 

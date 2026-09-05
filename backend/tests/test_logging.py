@@ -9,6 +9,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+import app.core.config as config_module
 from app.core.config import load_settings
 from app.core.logging import (
     LOG_TYPE_ACCESS,
@@ -29,8 +30,10 @@ from app.core.middleware import AccessLogMiddleware, RequestIDMiddleware
 
 @pytest.fixture()
 def isolated_env(tmp_path, monkeypatch):
-    """切换到临时目录并清理相关环境变量，保证用例互不影响。"""
-    monkeypatch.chdir(tmp_path)
+    """把 env 目录重定向到临时目录并清理相关环境变量，避免依赖 CWD 与污染真实 backend/env。"""
+    env_dir = tmp_path / "env"
+    env_dir.mkdir(exist_ok=True)
+    monkeypatch.setattr(config_module, "_ENV_FILE_DIR", env_dir)
     for var in (
         "APP_ENV",
         "CONFIG_SOURCE",
@@ -753,7 +756,7 @@ class TestExceptionLogging:
         from starlette.requests import Request
 
         import app.core.logging as logging_mod
-        from app.main import unhandled_exception_handler
+        from app.core.handlers import unhandled_exception_handler
 
         monkeypatch.setattr(logging_mod.settings, "log_enabled", True)
         monkeypatch.setattr(

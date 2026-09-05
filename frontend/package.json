@@ -7,9 +7,12 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "gen:api": "orval"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.102.8",
@@ -33,6 +36,8 @@
     "eslint-plugin-react-refresh": "^0.5.5",
     "globals": "^17.11.0",
     "jsdom": "^30.0.1",
+    "orval": "^8.28.1",
+    "prettier": "^3.9.6",
     "typescript": "~6.0.3",
     "typescript-eslint": "^8.68.0",
     "vite": "^8.2.2",

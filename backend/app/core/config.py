@@ -1,5 +1,6 @@
 import os
 from enum import StrEnum
+from pathlib import Path
 
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -63,6 +64,7 @@ class Settings(BaseSettings):
     app_name: str = "media-ops-system"
     debug: bool = False
     api_v1_prefix: str = "/api/v1"
+    api_docs_url: str = "/docs"  # 文档页路径（默认 /docs，可自定义如 /api/v1/docs）
 
     # 开发环境前端来源，跨域访问由 CORSMiddleware 控制
     cors_origins: list[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]
@@ -89,6 +91,27 @@ class Settings(BaseSettings):
     db_max_overflow: int = 20  # 池溢出上限
     db_pool_recycle: int = 3600  # 连接回收秒数（防断线僵尸连接）
     db_echo: bool = False  # 是否打印 SQL（dev 调试用，生产关闭）
+
+    # Redis 配置
+    # REDIS_URL 缺省空串表示未启用 Redis（服务可无 Redis 启动,避免破坏无依赖测试/CI）；
+    # 非空时按该 DSN 建立连接池。
+    redis_url: str = ""  # 形如 redis://[:pass]@host:6379/0
+
+    # JWT 配置
+    # 框架默认使用 HS256；生产环境务必通过环境变量设置强随机密钥。
+    jwt_secret: str = (
+        "dev-secret-change-in-production-32bytes"  # JWT 签名密钥（HS256 建议 ≥32 字节）
+    )
+    jwt_algorithm: str = "HS256"  # 签名算法
+    jwt_expire_minutes: int = 60 * 24 * 7  # token 有效期，默认 7 天
+
+    # 服务监听配置
+    # 禁止硬编码环境相关值：本地给默认值，生产/部署通过环境变量注入。
+    server_host: str = "127.0.0.1"  # 监听主机
+    server_port: int = 8000  # 监听端口
+
+    # 启动时是否通过横幅打印配置信息（脱敏后输出；任何环境开启均安全）
+    log_startup_config: bool = False
 
     @model_validator(mode="after")
     def _infer_log_defaults(self) -> "Settings":
@@ -119,18 +142,21 @@ def _parse_enum_env[T: StrEnum](var_name: str, raw_value: str, enum_cls: type[T]
         ) from None
 
 
-# 环境文件统一放在 env/ 目录下（相对后端运行目录）
-_ENV_FILE_DIR = "env"
+# 环境文件统一放在 backend/env/ 目录下。
+# 基于本文件(__file__)定位绝对路径，与进程工作目录(CWD)无关，
+# 从仓库根目录、docker、CI 等任意位置启动都能正确读取。
+_ENV_FILE_DIR = Path(__file__).resolve().parent.parent.parent / "env"
 
 
 def _env_file_for(app_env: AppEnv) -> str:
-    """文件模式下各环境对应的配置文件路径：``env/.env.{app_env}``。
+    """文件模式下各环境对应的配置文件路径（绝对路径）。
 
     - dev  → ``env/.env.dev``
     - test → ``env/.env.test``
     - pro  → ``env/.env.pro``
+    目录基于本文件定位（``backend/env``），与进程工作目录无关。
     """
-    return f"{_ENV_FILE_DIR}/.env.{app_env.value}"
+    return str(_ENV_FILE_DIR / f".env.{app_env.value}")
 
 
 def load_settings() -> Settings:
@@ -152,6 +178,7 @@ def load_settings() -> Settings:
         source = _parse_enum_env(_ENV_VAR_CONFIG_SOURCE, raw_source, ConfigSource)
 
     env_file = _env_file_for(app_env) if source == ConfigSource.FILE else None
+
     return Settings(_env_file=env_file, app_env=app_env)
 
 

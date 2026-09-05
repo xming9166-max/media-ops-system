@@ -1,6 +1,6 @@
 """测试声明式基类与 Mixin."""
 
-from sqlalchemy import String, create_engine
+from sqlalchemy import String, create_engine, select
 from sqlalchemy.orm import Mapped, Session, mapped_column, sessionmaker
 
 from app.core.db.base import Base, TimestampMixin, VersionMixin
@@ -33,6 +33,15 @@ def test_version_mixin_starts_at_one() -> None:
     session.add(acc)
     session.commit()
     assert acc.version == 1
+
+
+def test_version_server_default_fills_core_insert() -> None:
+    """Core 直插(bulk_insert 场景)省略 version 时,由 DB server_default 填充 1."""
+    session = _make_session()
+    session.execute(_Account.__table__.insert(), [{"name": "bulk"}])
+    session.commit()
+    row = session.execute(select(_Account).filter_by(name="bulk")).scalar_one()
+    assert row.version == 1
 
 
 def test_version_increments_on_update() -> None:

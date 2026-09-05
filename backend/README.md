@@ -17,13 +17,14 @@ uv sync
 
 ## 提交前检查（pre-commit 钩子）
 
-仓库内置 Git 钩子：每次 `git commit` 前自动对后端代码执行 `ruff format --check` + `ruff check`，
-**任一不通过则提交被拒绝**。
+仓库级 git 钩子由**仓库根 `.githooks/`** 统一路由：提交变更涉及 `backend/**` 时，
+自动对后端执行 `ruff format --check` + `ruff check`，**任一不通过则提交被拒绝**。
+（前端侧钩子说明见 `frontend/README.md`。）
 
 克隆仓库后激活钩子（每个本地仓库执行一次）：
 
 ```bash
-git config core.hooksPath backend/.githooks
+git config core.hooksPath .githooks
 ```
 
 手动执行同样的检查（不经钩子）：
@@ -35,7 +36,7 @@ cd backend
 ```
 
 紧急绕过（应极少使用）：`git commit --no-verify`。
-前端代码检查：`cd frontend && npm run lint`（当前未纳入钩子）。
+
 
 ## 运行环境配置
 
@@ -139,4 +140,46 @@ cd backend
 ```
 
 > 开发环境可用 `alembic upgrade head` 直接应用;生产环境建议导出 SQL 走变更流程。
+
+## Redis
+
+依赖:`redis`(async 客户端)。
+
+### 本地依赖服务
+
+```bash
+# 仓库根目录启动 Redis
+docker compose up -d redis
+
+# 连接串写入 env/.env.dev
+# REDIS_URL=redis://127.0.0.1:6379/0
+```
+
+### 配置键
+
+| 环境变量 | 类型 | 默认值 | 说明 |
+|---|---|---|---|
+| `REDIS_URL` | `str` | `""`(未启用) | Redis 连接串,空则服务可无 Redis 启动 |
+
+### 使用方式
+
+```python
+from app.core.redis.client import get_redis
+from app.core.redis.base import RedisBase
+
+# 基础类(统一 key 前缀 {app}:{namespace}:{key})
+class Cache(RedisBase):
+    namespace = "cache"
+
+cache = Cache()
+await cache.set_key("user:1", "data", ex=300)
+await cache.get_key("user:1")
+
+# 分布式锁
+token = await cache.acquire_lock("order:123", timeout=10)
+if token:
+    try:
+        ...
+    finally:
+        await cache.release_lock("order:123", token)
 

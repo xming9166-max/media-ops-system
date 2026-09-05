@@ -16,7 +16,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import DateTime, Integer, String, select
@@ -24,9 +24,14 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Mapped, Session, mapped_column
 
 from app.core.db.base import Base
-from app.core.db.session import get_current_session
+from app.core.db.session import resolve_session
 from app.core.db.transaction import commit_or_rollback
 from app.core.errors import ApiCode, ApiException
+
+
+def _utcnow() -> datetime:
+    """返回 naive UTC 当前时间,与 DB 端 func.now() 口径一致."""
+    return datetime.now(UTC).replace(tzinfo=None)
 
 
 class ArchiveHistoryMixin:
@@ -71,7 +76,7 @@ class MoveToArchiveRepositoryMixin:
 
     def __init__(self, session: Session | None = None) -> None:
         # 显式传入优先;缺省从 contextvar 自动取(方案一,同 RepositoryBase).
-        self.session = session or get_current_session()
+        self.session = resolve_session(session)
 
     def _commit_if_needed(self, _commit: bool) -> None:
         """按需提交事务.
@@ -107,7 +112,7 @@ class MoveToArchiveRepositoryMixin:
         snapshot = {c: getattr(obj, c) for c in self._business_columns()}
         history = self.history_model(
             source_id=obj.id,
-            deleted_at=datetime.now(),
+            deleted_at=_utcnow(),
             delete_reason=reason,
             **snapshot,
         )
@@ -126,9 +131,17 @@ class MoveToArchiveRepositoryMixin:
         """
         history = self.session.get(self.history_model, history_id)
         if history is None:
-            raise ValueError(f"history {history_id} not found")
+            raise ApiException(
+                http_status=404,
+                code=ApiCode.NOT_FOUND,
+                message=f"归档记录 {history_id} 不存在",
+            )
         if history.restored_at is not None:
-            raise ValueError(f"history {history_id} already restored")
+            raise ApiException(
+                http_status=409,
+                code=ApiCode.CONFLICT,
+                message=f"归档记录 {history_id} 已恢复",
+            )
 
         snapshot = {c: getattr(history, c) for c in self._business_columns()}
         obj = self.model(id=history.source_id, **snapshot)
@@ -145,7 +158,7 @@ class MoveToArchiveRepositoryMixin:
                     "or unique columns already in use"
                 ),
             ) from None
-        history.restored_at = datetime.now()
+        history.restored_at = _utcnow()
         self._commit_if_needed(_commit)
         return obj
 
@@ -166,12 +179,11 @@ class MoveToArchiveRepositoryMixin:
         **filters: Any,
     ) -> list[Any]:
         """历史表分页列表."""
+        from app.core.db.repository import resolve_order_by
+
         stmt = select(self.history_model).filter_by(**filters)
         if order_by:
-            if order_by.startswith("-"):
-                stmt = stmt.order_by(getattr(self.history_model, order_by[1:]).desc())
-            else:
-                stmt = stmt.order_by(getattr(self.history_model, order_by).asc())
+            stmt = stmt.order_by(resolve_order_by(self.history_model, order_by))
         stmt = stmt.offset(offset).limit(limit)
         return list(self.session.execute(stmt).scalars().all())
 

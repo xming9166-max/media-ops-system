@@ -23,12 +23,19 @@ services:
       timeout: 3s
       retries: 10
 
-  # 预留:WP-2/3 启用 Redis + Celery broker
-  # redis:
-  #   image: redis:7
-  #   container_name: media-ops-redis
-  #   ports:
-  #     - "6379:6379"
+  redis:
+    image: redis:7
+    container_name: media-ops-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
 volumes:
   mysql_data:
+  redis_data:

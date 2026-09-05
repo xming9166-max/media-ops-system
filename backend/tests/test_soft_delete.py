@@ -46,6 +46,12 @@ def _seed(repo, key="alice"):
     return acc
 
 
+def test_init_without_session_raises() -> None:
+    """无显式 session、无请求上下文时,归档 Repository 应早期报错."""
+    with pytest.raises(RuntimeError, match="无可用数据库 Session"):
+        _AccountRepo()
+
+
 # ---------- 删除(快照 + 原子归档) ----------
 
 
@@ -63,6 +69,21 @@ def test_delete_snapshots_business_columns_and_source_id() -> None:
     assert history[0].name == "name-alice"
     assert history[0].delete_reason == "test"
     assert history[0].deleted_at is not None
+
+
+def test_deleted_at_is_naive_utc() -> None:
+    """deleted_at 应为 naive UTC 时间,而非本地时区."""
+    from datetime import UTC, datetime, timedelta
+
+    repo = _make_repo()
+    acc = _seed(repo)
+    repo.delete(acc, reason="utc-check")
+    repo.session.commit()
+
+    history = repo.list_history(limit=10)[0]
+    assert history.deleted_at.tzinfo is None
+    # 与 UTC 当前时间误差在 5 秒内
+    assert abs(history.deleted_at - datetime.now(UTC).replace(tzinfo=None)) < timedelta(seconds=5)
 
 
 def test_delete_does_not_copy_main_only_columns() -> None:
@@ -203,8 +224,20 @@ def test_restore_already_restored_raises() -> None:
     repo.restore(history.id)
     repo.session.commit()
 
-    with pytest.raises(ValueError, match="already restored"):
+    with pytest.raises(ApiException) as exc_info:
         repo.restore(history.id)
+    assert exc_info.value.code == ApiCode.CONFLICT
+    assert exc_info.value.http_status == 409
+
+
+def test_restore_not_found_raises() -> None:
+    """恢复不存在的归档记录应返回 404."""
+    repo = _make_repo()
+
+    with pytest.raises(ApiException) as exc_info:
+        repo.restore(999)
+    assert exc_info.value.code == ApiCode.NOT_FOUND
+    assert exc_info.value.http_status == 404
 
 
 def test_repeat_delete_restore_keeps_multiple_histories() -> None:

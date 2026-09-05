@@ -1,12 +1,15 @@
 import pytest
 
+import app.core.config as config_module
 from app.core.config import AppEnv, load_settings
 
 
 @pytest.fixture()
 def isolated_env(tmp_path, monkeypatch):
-    """切换到临时目录并清理相关环境变量，保证用例互不影响。"""
-    monkeypatch.chdir(tmp_path)
+    """把 env 目录重定向到临时目录并清理相关环境变量，避免依赖 CWD 与污染真实 backend/env。"""
+    env_dir = tmp_path / "env"
+    env_dir.mkdir(exist_ok=True)
+    monkeypatch.setattr(config_module, "_ENV_FILE_DIR", env_dir)
     for var in ("APP_ENV", "CONFIG_SOURCE", "APP_NAME", "DEBUG"):
         monkeypatch.delenv(var, raising=False)
     return tmp_path
@@ -85,3 +88,31 @@ class TestPriorityAndValidation:
         monkeypatch.setenv("APP_ENV", "PRO")
         settings = load_settings()
         assert settings.app_env == AppEnv.PRO
+
+
+class TestServerBindFromEnvFile:
+    """Server bind config read from env file."""
+
+    def test_defaults(self, isolated_env):
+        settings = load_settings()
+        assert settings.server_host == "127.0.0.1"
+        assert settings.server_port == 8000
+
+    def test_reads_from_env_file(self, isolated_env):
+        _write_env_file(isolated_env, ".env.dev", "SERVER_HOST=0.0.0.0\nSERVER_PORT=9090\n")
+        settings = load_settings()
+        assert settings.server_host == "0.0.0.0"
+        assert settings.server_port == 9090
+
+
+class TestApiDocsUrl:
+    """API 文档地址配置可读且可被 env 文件覆盖。"""
+
+    def test_defaults_to_docs(self, isolated_env):
+        settings = load_settings()
+        assert settings.api_docs_url == "/docs"
+
+    def test_reads_from_env_file(self, isolated_env):
+        _write_env_file(isolated_env, ".env.dev", "API_DOCS_URL=/api/v1/docs\n")
+        settings = load_settings()
+        assert settings.api_docs_url == "/api/v1/docs"

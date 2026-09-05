@@ -1,5 +1,6 @@
 """测试通用 Repository 基类."""
 
+import pytest
 from sqlalchemy import String, create_engine
 from sqlalchemy.orm import Mapped, mapped_column, sessionmaker
 
@@ -23,6 +24,12 @@ def _make_repo():
     return _ItemRepo(Session())
 
 
+def test_init_without_session_raises() -> None:
+    """无显式 session、无请求上下文时,Repository 应早期报错."""
+    with pytest.raises(RuntimeError, match="无可用数据库 Session"):
+        _ItemRepo()
+
+
 def test_add_and_get() -> None:
     repo = _make_repo()
     repo.add(_Item(name="a"))
@@ -38,6 +45,13 @@ def test_get_by_unique_field() -> None:
     repo.session.commit()
     assert repo.get_by(name="alice").name == "alice"
     assert repo.get_by(name="nobody") is None
+
+
+def test_list_rejects_invalid_order_by() -> None:
+    """非法排序字段应抛出 ValueError,避免 SQLAlchemy 的 AttributeError."""
+    repo = _make_repo()
+    with pytest.raises(ValueError, match="非法排序字段"):
+        repo.list(order_by="not_a_column")
 
 
 def test_list_with_pagination() -> None:

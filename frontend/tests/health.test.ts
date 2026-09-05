@@ -1,27 +1,22 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { fetchHealth } from '@/services/api/health'
+import { healthCheckApiV1HealthGet } from '@/services/generated/api'
 
-vi.mock('@/services/http/client', () => {
-  const mockedGet = vi.fn()
-  const mockedAxios = { get: mockedGet }
-  return {
-    httpClient: mockedAxios,
-  }
-})
+vi.mock('@/services/generated/api', () => ({
+  healthCheckApiV1HealthGet: vi.fn(),
+}))
 
-import { httpClient } from '@/services/http/client'
-
-const mockedGet = vi.mocked(httpClient.get)
+const mockedHealthGet = vi.mocked(healthCheckApiV1HealthGet)
 
 afterEach(() => {
-  mockedGet.mockReset()
+  mockedHealthGet.mockReset()
 })
 
 describe('fetchHealth', () => {
-  it('GETs /api/v1/health and returns status', async () => {
-    mockedGet.mockResolvedValue({ data: { status: 'ok' } })
+  it('calls generated healthCheckApiV1HealthGet and returns status', async () => {
+    mockedHealthGet.mockResolvedValue({ status: 'ok' } as never)
     const result = await fetchHealth()
-    expect(mockedGet).toHaveBeenCalledWith('/api/v1/health')
+    expect(mockedHealthGet).toHaveBeenCalledTimes(1)
     expect(result).toEqual({ status: 'ok' })
   })
 })

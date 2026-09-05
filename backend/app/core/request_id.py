@@ -10,7 +10,6 @@ _ALLOWED = re.compile(r"^[A-Za-z0-9_.-]+$")
 
 
 def sanitize_request_id(value):
-    pass
     if not value:
         return None
     value = value.strip()
